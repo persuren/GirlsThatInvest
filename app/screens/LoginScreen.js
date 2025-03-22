@@ -1,131 +1,122 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Alert, StyleSheet, ScrollView } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { Image } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, TextInput, TouchableOpacity, Alert, StyleSheet, Image, ActivityIndicator } from 'react-native';
 
 const LoginScreen = ({ onLogin }) => {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
-  
-    const handleLogin = () => {
-      if (username === 'admin' && password === '1234') {
-        onLogin();
-      } else {
-        Alert.alert('Incorrect Login', 'Username or password is incorrect');
-      }
+    const [loading, setLoading] = useState(false);
+
+    // Sabit (hardcoded) kullanıcı bilgileri
+    const validUsername = "1";
+    const validPassword = "1";
+
+    const handleLogin = async () => {
+        if (!username || !password) {
+            Alert.alert('Uyarı', 'Kullanıcı adı ve şifre boş olamaz!');
+            return;
+        }
+
+        setLoading(true);
+        try {
+            // Hardcoded giriş kontrolü
+            if (username === validUsername && password === validPassword) {
+                console.log("Giriş başarılı:", username);
+                //Alert.alert("Başarılı", "Giriş başarılı!");
+                onLogin(); // Ana ekrana yönlendirme
+            } else {
+                Alert.alert("Hata", "Kullanıcı adı veya şifre hatalı!");
+            }
+        } catch (error) {
+            console.error("Bağlantı hatası:", error);
+            Alert.alert("Bağlantı hatası", "Sunucuya ulaşılamıyor.");
+        } finally {
+            setLoading(false);
+        }
     };
-  
+
     return (
-      <View style={styles.container}>
-          <Image source={require('../../assets/images/logo.png')} style={styles.logo} />
-        <Text style={styles.title}>Girls That Invest</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="User Name"
-          value={username}
-          onChangeText={setUsername}
-          keyboardType="ascii-capable"
-          autoFocus={true}
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Password"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-          keyboardType="ascii-capable"
-        />
-        <TouchableOpacity style={styles.button} onPress={handleLogin}>
-          <Text style={styles.buttonText}>Sign in</Text>
-        </TouchableOpacity>
-      </View>
+        <View style={styles.container}>
+            <Image source={require('../../assets/images/logo.png')} style={styles.logo} />
+            <Text style={styles.title}>Girls That Invest</Text>
+
+            <TextInput
+                style={styles.input}
+                placeholder="User Name"
+                value={username}
+                onChangeText={setUsername}
+                keyboardType="ascii-capable"
+                autoCapitalize="none"
+            />
+            <TextInput
+                style={styles.input}
+                placeholder="Password"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+                keyboardType="ascii-capable"
+            />
+
+            <TouchableOpacity 
+                style={[styles.button, (loading || !username || !password) && styles.disabledButton]} 
+                onPress={handleLogin}
+                disabled={loading || !username || !password}
+            >
+                {loading ? <ActivityIndicator color="white" /> : <Text style={styles.buttonText}>Sign in</Text>}
+            </TouchableOpacity>
+        </View>
     );
-  };
-  const styles = StyleSheet.create({
+};
+
+const styles = StyleSheet.create({
     container: {
-      flex: 1,
-      backgroundColor: '#f6bfe0',
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    scrollContainer: {
-      flex: 1,
-      backgroundColor: '#f6bfe0',
-    },
-    scrollContent: {
-      flexGrow: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
+        flex: 1,
+        backgroundColor: '#f6bfe0',
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     logo: {
-      justifyContent: 'center',
-      alignItems: 'center',
-      width: 130,
-      height: 130,
-      marginBottom: 20,
-      resizeMode: 'contain',
-      borderRadius: 20,
-    },
-    
-    header: {
-      position: 'absolute',
-      top: 40,
-      left: 20,
-      right: 20,
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      width: '90%',
-      fontFamily: 'georgia'
-    },
-    iconLeft: {
-      alignSelf: 'flex-start',
-      top: -15,
-    },
-    iconRight: {
-      alignSelf: 'flex-end',
-      top: -15,
+        width: 130,
+        height: 130,
+        marginBottom: 20,
+        resizeMode: 'contain',
+        borderRadius: 20,
     },
     title: {
-      top: 15,
-      fontSize: 28,
-      fontWeight: 'bold',
-      marginBottom: 30,
-      color: '#ff66b2',
-      textShadowColor: 'rgba(255, 102, 178, 0.6)',
-      textShadowOffset: { width: 1, height: 1 },
-      textShadowRadius: 10,
-      letterSpacing: 1,
-      //textTransform: 'uppercase',
-      fontFamily: 'georgia',
+        fontSize: 28,
+        fontWeight: 'bold',
+        marginBottom: 30,
+        color: '#ff66b2',
+        fontFamily: 'georgia',
     },
     input: {
-      justifyContent: 'center',
-      alignItems: 'center',
-      width: 200,
-      height: 40,
-      borderColor: 'pink',
-      borderWidth: 3,
-      marginBottom: 10,
-      paddingLeft: 10,
-      backgroundColor: 'white',
-      borderRadius: 20,
-      fontFamily: 'georgia'
+        width: 200,
+        height: 40,
+        borderColor: 'pink',
+        borderWidth: 3,
+        marginBottom: 10,
+        paddingLeft: 10,
+        backgroundColor: 'white',
+        borderRadius: 20,
+        fontFamily: 'georgia'
     },
     button: {
-      backgroundColor: '#ff66b2',
-      paddingVertical: 10,
-      paddingHorizontal: 20,
-      borderRadius: 20,
-      marginTop: 10,
-      width: '30%',
-      alignItems: 'center',
-      position: 'relative',
+        backgroundColor: '#ff66b2',
+        paddingVertical: 10,
+        paddingHorizontal: 20,
+        borderRadius: 20,
+        marginTop: 10,
+        width: '30%',
+        alignItems: 'center',
     },
     buttonText: {
-      color: 'white',
-      fontSize: 18,
-      fontWeight: 'bold',
-      fontFamily: 'georgia'
+        color: 'white',
+        fontSize: 18,
+        fontWeight: 'bold',
+        fontFamily: 'georgia'
     },
-  });
-  export default LoginScreen;
+    disabledButton: {
+        backgroundColor: '#ccc',
+    },
+});
+
+export default LoginScreen;

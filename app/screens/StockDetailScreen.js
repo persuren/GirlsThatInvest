@@ -1,8 +1,42 @@
-import React from "react";
-import { View, Text, Image, StyleSheet, Dimensions } from "react-native";
+import React, { useEffect, useState } from "react";
+import { View, Text, Image, StyleSheet, Dimensions, ActivityIndicator } from "react-native";
 import { LineChart } from "react-native-chart-kit";
+import StockChart from "./StockChart";
+
 export default function StockDetailScreen({ route }) {
-  const stock = route?.params?.stock; // Güvenli erişim
+  const stock = route?.params?.stock;
+  const [stockDetails, setStockDetails] = useState(null);
+  const [pastPrices, setPastPrices] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!stock) return;
+  
+    const fetchStockData = async () => {
+    try {
+      console.log("Fetching stock data for", stock.symbol);
+      const response = await fetch(`http://10.0.2.2:5001/get_stock_history/${stock.symbol}`);
+      const data = await response.json();
+      console.log("Stock data fetched:", data);
+
+      if (data && data.length > 0) {
+        const stockData = data.map(item => ({
+          adj_close: item.adj_close,
+          volume: item.volume,
+          timestamp: item.timestamp
+        }));
+        setPastPrices(stockData); // pastPrices dizisini güncelliyoruz
+        setStockDetails(data[0]); // İlk elemanı detaylara koyuyoruz
+      }
+    } catch (error) {
+      console.error("Error fetching stock data:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  fetchStockData();
+}, [stock]);
 
   if (!stock) {
     return (
@@ -12,8 +46,13 @@ export default function StockDetailScreen({ route }) {
     );
   }
 
-  // Gerçek bir API'den veri çekmek için burayı dinamik hale getirebilirsin.
-  const pastPrices = [220, 225, 230, 235, 240, 245, 250, 255, 260, 265, 270];
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#ff69b4" />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -23,35 +62,21 @@ export default function StockDetailScreen({ route }) {
         <Text style={styles.title}>{stock.symbol}</Text>
       </View>
 
-      <Text style={styles.price}>Current Price: ${stock.price.toFixed(2)}</Text>
-
       {/* Fiyat Grafiği */}
-      <Text style={styles.sectionTitle}>Price Trend</Text>
-      <LineChart
+        <StockChart stockHistory={pastPrices} />
 
-        data={{
-        labels: pastPrices.map((_, index) => `D${index + 1}`), // Daha kısa etiketler
-        datasets: [{ data: pastPrices }],
-        }}
-        width={Dimensions.get("window").width - 40}
-        height={200}
-        chartConfig={{
-        backgroundColor: "#ff69b4",
-        backgroundGradientFrom: "#ff1493",
-        backgroundGradientTo: "#ff69b4",
-        decimalPlaces: 2,
-        color: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
-        labelColor: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
-        style: { borderRadius: 8 },
-        }}
-        bezier
-        />
+      <Text style={styles.price}>
+        Current Price: ${isNaN(stockDetails?.price) ? "N/A" : stockDetails?.price}
+      </Text>
+      <Text style={styles.detail}>Volume: {isNaN(stockDetails?.volume) ? "N/A" : stockDetails?.volume}</Text>
 
       {/* Hisse Detayları */}
       <Text style={styles.sectionTitle}>Stock Details</Text>
-      <Text style={styles.detail}>Open: $235.50</Text>
-      <Text style={styles.detail}>Close: $240.00</Text>
-      <Text style={styles.detail}>Volume: 1.2M</Text>
+      <Text style={styles.detail}>Open: ${stockDetails?.open}</Text>
+      <Text style={styles.detail}>Close: ${stockDetails?.adj_close}</Text>
+      <Text style={styles.detail}>High: ${stockDetails?.high}</Text>
+      <Text style={styles.detail}>Low: ${stockDetails?.low}</Text>
+      <Text style={styles.detail}>Time: {stockDetails?.timestamp}</Text>      
     </View>
   );
 }

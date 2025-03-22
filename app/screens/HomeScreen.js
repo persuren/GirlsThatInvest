@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   FlatList,
   Image,
-  Alert,
   StyleSheet,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -16,32 +15,68 @@ export default function HomeScreen({ navigation }) {
   const [search, setSearch] = useState("");
   const [filteredStocks, setFilteredStocks] = useState([]);
 
-  useEffect(() => {
-    fetch("http://10.0.2.2:5001/fetch_data")
-      .then((response) => response.json())
-      .then((data) => {
-        setStockData(data.data);
-        setFilteredStocks(data.data); // Başlangıçta tüm verileri göster
-      })
-      .catch((error) => Alert.alert("Veri çekme hatası", error.message));
-  }, []);
-  const getLatestStockData = () => {
-    const latestData = {};
-    stockData.forEach((item) => {
-      if (!latestData[item.symbol] || item.timestamp > latestData[item.symbol].timestamp) {
-        latestData[item.symbol] = item;
+  const fetchStockDataWithPolling = async () => {
+    try {
+      console.log("Veri çekme işlemi başlıyor...");
+
+      const startResponse = await fetch("http://10.0.2.2:5001/fetch_data");
+
+      if (!startResponse.ok) {
+        throw new Error(`Başlatma başarısız: ${startResponse.status}`);
       }
-    });
-    return Object.values(latestData);
+
+      let attempts = 0;
+      const maxAttempts = 10; // Maksimum 10 tekrar dene
+      let dataFetched = false;
+
+      while (attempts < maxAttempts && !dataFetched) {
+        console.log(`Deneme ${attempts + 1}: Veriler çekilmeye çalışılıyor...`);
+
+        await new Promise((resolve) => setTimeout(resolve, 3000)); // 3 saniye bekle
+
+        try {
+          const response = await fetch("http://10.0.2.2:5001/get_stock_data");
+
+          if (!response.ok) {
+            console.warn(`Yanıt başarısız: ${response.status}`);
+            continue; // Sonraki denemeye geç
+          }
+
+          const result = await response.json();
+
+          if (Array.isArray(result.data) && result.data.length > 0) {
+            console.log("Veriler başarıyla çekildi!");
+            setStockData(result.data);
+            setFilteredStocks(result.data);
+            dataFetched = true;
+          } else {
+            console.warn("Veri henüz hazır değil, tekrar denenecek...");
+          }
+        } catch (fetchError) {
+          console.error("Veri çekme hatası:", fetchError);
+        }
+
+        attempts++;
+      }
+
+      if (!dataFetched) {
+        console.error("Maksimum deneme sayısına ulaşıldı, veri çekilemedi.");
+      }
+    } catch (error) {
+      console.log("API hatası:", error);
+    }
   };
-  const latestStockData = getLatestStockData();
+
+  useEffect(() => {
+    fetchStockDataWithPolling();
+  }, []); // ❌ getLatestStockData kaldırıldı, sadece fetchStockDataWithPolling çağırılıyor
 
   const handleSearch = (text) => {
     setSearch(text);
     if (text === "") {
-      setFilteredStocks(latestStockData);
+      setFilteredStocks(stockData);
     } else {
-      const filtered = latestStockData.filter((stock) =>
+      const filtered = stockData.filter((stock) =>
         stock.symbol.toLowerCase().includes(text.toLowerCase())
       );
       setFilteredStocks(filtered);
@@ -50,7 +85,6 @@ export default function HomeScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      {/* Üst Menü */}
       <View style={styles.header}>
         <Ionicons name="information-circle-outline" size={24} color="#d63384" />
         <TextInput
@@ -63,7 +97,6 @@ export default function HomeScreen({ navigation }) {
         <Ionicons name="heart-outline" size={24} color="#d63384" />
       </View>
 
-      {/* Hisse Senedi Listesi */}
       <FlatList
         data={filteredStocks} // filteredStocks'u kullan
         keyExtractor={(item) => item.symbol}
@@ -79,7 +112,7 @@ export default function HomeScreen({ navigation }) {
             <View style={styles.stockInfo}>
               <Text style={styles.stockSymbol}>{item.symbol}</Text>
               <Text style={styles.stockPrice}>
-                ${item.price && item.price.toFixed(2)}
+                ${item.price ? item.price : "N/A"}
               </Text>
             </View>
           </TouchableOpacity>
