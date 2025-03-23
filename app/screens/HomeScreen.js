@@ -1,20 +1,21 @@
 import React, { useState, useEffect } from "react";
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  FlatList,
-  Image,
-  StyleSheet,
+import { 
+  View, 
+  Text, 
+  TextInput, 
+  TouchableOpacity, 
+  FlatList, 
+  Image, 
+  StyleSheet 
 } from "react-native";
+import { WebView } from 'react-native-webview';
 import { Ionicons } from "@expo/vector-icons";
-
 
 export default function HomeScreen({ navigation }) {
   const [stockData, setStockData] = useState([]);
   const [search, setSearch] = useState("");
   const [filteredStocks, setFilteredStocks] = useState([]);
+  const [favorites, setFavorites] = useState({});
   const testLogo = "https://upload.wikimedia.org/wikipedia/commons/1/1e/React_Logo.png";
 
   const fetchStockLogo = async (symbol) => {
@@ -31,12 +32,8 @@ export default function HomeScreen({ navigation }) {
   const fetchStockDataWithPolling = async () => {
     try {
       console.log("Veri çekme işlemi başlıyor...");
-
       const startResponse = await fetch("http://10.0.2.2:5001/fetch_data");
-
-      if (!startResponse.ok) {
-        throw new Error(`Başlatma başarısız: ${startResponse.status}`);
-      }
+      if (!startResponse.ok) throw new Error(`Başlatma başarısız: ${startResponse.status}`);
 
       let attempts = 0;
       const maxAttempts = 10;
@@ -44,22 +41,18 @@ export default function HomeScreen({ navigation }) {
 
       while (attempts < maxAttempts && !dataFetched) {
         console.log(`Deneme ${attempts + 1}: Veriler çekilmeye çalışılıyor...`);
-
         await new Promise((resolve) => setTimeout(resolve, 3000));
 
         try {
           const response = await fetch("http://10.0.2.2:5001/get_stock_data");
-
           if (!response.ok) {
             console.warn(`Yanıt başarısız: ${response.status}`);
             continue;
           }
 
           const result = await response.json();
-
           if (Array.isArray(result.data) && result.data.length > 0) {
             console.log("Veriler başarıyla çekildi!");
-
             const stocksWithLogos = await Promise.all(
               result.data.map(async (stock) => {
                 const logoUrl = await fetchStockLogo(stock.symbol);
@@ -76,13 +69,9 @@ export default function HomeScreen({ navigation }) {
         } catch (fetchError) {
           console.error("Veri çekme hatası:", fetchError);
         }
-
         attempts++;
       }
-
-      if (!dataFetched) {
-        console.error("Maksimum deneme sayısına ulaşıldı, veri çekilemedi.");
-      }
+      if (!dataFetched) console.error("Maksimum deneme sayısına ulaşıldı, veri çekilemedi.");
     } catch (error) {
       console.log("API hatası:", error);
     }
@@ -101,9 +90,15 @@ export default function HomeScreen({ navigation }) {
         stock.symbol.toLowerCase().includes(text.toLowerCase())
       );
       setFilteredStocks(filtered);
+      
     }
   };
-
+  const toggleFavorite = (symbol) => {
+    setFavorites((prevFavorites) => ({
+      ...prevFavorites,
+      [symbol]: !prevFavorites[symbol],
+    }));
+  };
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -126,31 +121,36 @@ export default function HomeScreen({ navigation }) {
             onPress={() => navigation.navigate("StockDetail", { stock: item })}
             style={styles.stockItem}
           >
+            <Ionicons 
+              name={item.adj_close > item.open ? "arrow-up-outline" : "arrow-down-outline"} 
+              size={24} 
+              color={item.adj_close > item.open ? "green" : "red"} 
+              style={styles.arrowIcon} 
+            />
             {item.logo ? (
-              <Image
-              source={{ uri: item.logo }}
-              style={styles.stockLogo}
-              resizeMode="contain"
-              onError={(error) => {
-                  console.log('Logo yükleme hatası:', error.nativeEvent.error);
-                  fetch(item.logo)
-                      .then(response => console.log('Content-Type:', response.headers.get('Content-Type')))
-                      .catch(fetchError => console.log('Fetch hatası:', fetchError));
-              }}
-              onLoad={() => console.log('Logo yüklendi')}
-          />
+              <View style={styles.stockLogo}>
+                <WebView
+                  source={{ uri: item.logo }}
+                  style={{ flex: 1 }}
+                  scalesPageToFit={false}
+                />
+              </View>
             ) : (
               <View style={styles.stockLogoPlaceholder}>
                 <Text style={styles.logoText}>Logo Yok</Text>
               </View>
             )}
-
             <View style={styles.stockInfo}>
               <Text style={styles.stockSymbol}>{item.symbol}</Text>
-              <Text style={styles.stockPrice}>
-                ${item.price ? item.price : "N/A"}
-              </Text>
+              <Text style={styles.stockPrice}>${item.price ? item.price : "N/A"}</Text>
             </View>
+            <TouchableOpacity onPress={() => toggleFavorite(item.symbol)} style={styles.heartContainer}>
+              <Ionicons 
+                name={favorites[item.symbol] ? "heart" : "heart-outline"} 
+                size={24} 
+                color={favorites[item.symbol] ? "red" : "#d63384"} 
+              />
+            </TouchableOpacity>
           </TouchableOpacity>
         )}
       />
@@ -206,13 +206,13 @@ const styles = StyleSheet.create({
     backgroundColor: "#ffc0cb",
     justifyContent: "center",
     alignItems: "center",
-    borderWidth: 1, // Placeholder için kenarlık ekledim
-    borderColor: "#d63384", // Kenarlık rengi
+    borderWidth: 1,
+    borderColor: "#d63384",
   },
   logoText: {
     color: "#fff",
     textAlign: "center",
-    fontWeight: "bold", // Metni daha belirgin yapmak için ekledim
+    fontWeight: "bold",
   },
   stockInfo: {
     flex: 1,
@@ -225,5 +225,9 @@ const styles = StyleSheet.create({
   stockPrice: {
     fontSize: 16,
     color: "#333",
+  },
+
+  arrowIcon: {
+    marginLeft: 10,
   },
 });
