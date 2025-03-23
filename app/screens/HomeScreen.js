@@ -10,10 +10,23 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
+
 export default function HomeScreen({ navigation }) {
   const [stockData, setStockData] = useState([]);
   const [search, setSearch] = useState("");
   const [filteredStocks, setFilteredStocks] = useState([]);
+  const testLogo = "https://upload.wikimedia.org/wikipedia/commons/1/1e/React_Logo.png";
+
+  const fetchStockLogo = async (symbol) => {
+    try {
+      const response = await fetch(`http://10.0.2.2:5001/get_stock_logo/${symbol}`);
+      const data = await response.json();
+      return data.logo || null;
+    } catch (error) {
+      console.error("Logo alınamadı:", error);
+      return null;
+    }
+  };
 
   const fetchStockDataWithPolling = async () => {
     try {
@@ -26,28 +39,36 @@ export default function HomeScreen({ navigation }) {
       }
 
       let attempts = 0;
-      const maxAttempts = 10; // Maksimum 10 tekrar dene
+      const maxAttempts = 10;
       let dataFetched = false;
 
       while (attempts < maxAttempts && !dataFetched) {
         console.log(`Deneme ${attempts + 1}: Veriler çekilmeye çalışılıyor...`);
 
-        await new Promise((resolve) => setTimeout(resolve, 3000)); // 3 saniye bekle
+        await new Promise((resolve) => setTimeout(resolve, 3000));
 
         try {
           const response = await fetch("http://10.0.2.2:5001/get_stock_data");
 
           if (!response.ok) {
             console.warn(`Yanıt başarısız: ${response.status}`);
-            continue; // Sonraki denemeye geç
+            continue;
           }
 
           const result = await response.json();
 
           if (Array.isArray(result.data) && result.data.length > 0) {
             console.log("Veriler başarıyla çekildi!");
-            setStockData(result.data);
-            setFilteredStocks(result.data);
+
+            const stocksWithLogos = await Promise.all(
+              result.data.map(async (stock) => {
+                const logoUrl = await fetchStockLogo(stock.symbol);
+                return { ...stock, logo: logoUrl };
+              })
+            );
+
+            setStockData(stocksWithLogos);
+            setFilteredStocks(stocksWithLogos);
             dataFetched = true;
           } else {
             console.warn("Veri henüz hazır değil, tekrar denenecek...");
@@ -69,7 +90,7 @@ export default function HomeScreen({ navigation }) {
 
   useEffect(() => {
     fetchStockDataWithPolling();
-  }, []); // ❌ getLatestStockData kaldırıldı, sadece fetchStockDataWithPolling çağırılıyor
+  }, []);
 
   const handleSearch = (text) => {
     setSearch(text);
@@ -98,17 +119,32 @@ export default function HomeScreen({ navigation }) {
       </View>
 
       <FlatList
-        data={filteredStocks} // filteredStocks'u kullan
+        data={filteredStocks}
         keyExtractor={(item) => item.symbol}
         renderItem={({ item }) => (
           <TouchableOpacity
             onPress={() => navigation.navigate("StockDetail", { stock: item })}
             style={styles.stockItem}
           >
-            <Image
+            {item.logo ? (
+              <Image
               source={{ uri: item.logo }}
               style={styles.stockLogo}
-            />
+              resizeMode="contain"
+              onError={(error) => {
+                  console.log('Logo yükleme hatası:', error.nativeEvent.error);
+                  fetch(item.logo)
+                      .then(response => console.log('Content-Type:', response.headers.get('Content-Type')))
+                      .catch(fetchError => console.log('Fetch hatası:', fetchError));
+              }}
+              onLoad={() => console.log('Logo yüklendi')}
+          />
+            ) : (
+              <View style={styles.stockLogoPlaceholder}>
+                <Text style={styles.logoText}>Logo Yok</Text>
+              </View>
+            )}
+
             <View style={styles.stockInfo}>
               <Text style={styles.stockSymbol}>{item.symbol}</Text>
               <Text style={styles.stockPrice}>
@@ -123,53 +159,71 @@ export default function HomeScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-    container: {
+  container: {
     flex: 1,
     backgroundColor: "#f6bfe0",
     padding: 10,
-    },
-    header: {
+    fontWeight: 'bold',
+    fontFamily: 'georgia',
+  },
+  header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 10,
-    },
-    searchInput: {
+  },
+  searchInput: {
     backgroundColor: "#fff",
     flex: 1,
     marginHorizontal: 10,
     padding: 8,
     borderRadius: 8,
-    },
-    stockItem: {
+  },
+  stockItem: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#fff",
     padding: 15,
     borderRadius: 10,
     marginBottom: 8,
-    elevation: 3, // Android'de gölge
-    shadowColor: "#000", // iOS'ta gölge
+    elevation: 3,
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 2,
-    },
-    stockLogo: {
+  },
+  stockLogo: {
     width: 50,
     height: 50,
     borderRadius: 25,
     marginRight: 15,
-    },
-    stockInfo: {
+  },
+  stockLogoPlaceholder: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    marginRight: 15,
+    backgroundColor: "#ffc0cb",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1, // Placeholder için kenarlık ekledim
+    borderColor: "#d63384", // Kenarlık rengi
+  },
+  logoText: {
+    color: "#fff",
+    textAlign: "center",
+    fontWeight: "bold", // Metni daha belirgin yapmak için ekledim
+  },
+  stockInfo: {
     flex: 1,
-    },
-    stockSymbol: {
+  },
+  stockSymbol: {
     fontSize: 18,
     fontWeight: "bold",
     marginBottom: 5,
-    },
-    stockPrice: {
+  },
+  stockPrice: {
     fontSize: 16,
     color: "#333",
-    },
-    });
+  },
+});

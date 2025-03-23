@@ -193,6 +193,25 @@ def get_stock_history(symbol):
         cursor.close()
         conn.close()
 
+@app.route('/get_stock_logo/<symbol>', methods=['GET'])
+def get_stock_logo(symbol):
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    
+    try:
+        query = "SELECT logo FROM nasdaq_symbols WHERE symbol = %s"
+        cursor.execute(query, (symbol,))
+        data = cursor.fetchone()
+        
+        if not data:
+            return jsonify({"error": "No logo found for the given stock symbol."}), 404
+        
+        return jsonify(data)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        cursor.close()
+        conn.close()
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=5001, debug=True)

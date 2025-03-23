@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, Image, StyleSheet, Dimensions, ActivityIndicator } from "react-native";
-import { LineChart } from "react-native-chart-kit";
-import StockChart from "./StockChart";
+import { View, Text, Image, StyleSheet, ActivityIndicator } from "react-native";
+import StockChart from "./StockChart"; // Güncellenmiş StockChart bileşeni
 
 export default function StockDetailScreen({ route }) {
   const stock = route?.params?.stock;
@@ -11,32 +10,22 @@ export default function StockDetailScreen({ route }) {
 
   useEffect(() => {
     if (!stock) return;
-  
     const fetchStockData = async () => {
-    try {
-      console.log("Fetching stock data for", stock.symbol);
-      const response = await fetch(`http://10.0.2.2:5001/get_stock_history/${stock.symbol}`);
-      const data = await response.json();
-      console.log("Stock data fetched:", data);
-
-      if (data && data.length > 0) {
-        const stockData = data.map(item => ({
-          adj_close: item.adj_close,
-          volume: item.volume,
-          timestamp: item.timestamp
-        }));
-        setPastPrices(stockData); // pastPrices dizisini güncelliyoruz
-        setStockDetails(data[0]); // İlk elemanı detaylara koyuyoruz
+      try {
+        const response = await fetch(`http://10.0.2.2:5001/get_stock_history/${stock.symbol}`);
+        const data = await response.json();
+        if (data && data.length > 0) {
+          setPastPrices(data.map(item => ({ adj_close: item.adj_close, timestamp: item.timestamp })));
+          setStockDetails(data[0]);
+        }
+      } catch (error) {
+        console.error("Error fetching stock data:", error);
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error("Error fetching stock data:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  fetchStockData();
-}, [stock]);
+    };
+    fetchStockData();
+  }, [stock]);
 
   if (!stock) {
     return (
@@ -56,27 +45,25 @@ export default function StockDetailScreen({ route }) {
 
   return (
     <View style={styles.container}>
-      {/* Hisse Başlık */}
       <View style={styles.header}>
         <Image source={{ uri: stock.logo }} style={styles.logo} />
         <Text style={styles.title}>{stock.symbol}</Text>
       </View>
+      
+      {/* Grafik */}
+      <StockChart stockHistory={pastPrices} />
 
-      {/* Fiyat Grafiği */}
-        <StockChart stockHistory={pastPrices} />
+      {/* Güncel Fiyat */}
+      <Text style={styles.price}>Current Price: ${stockDetails?.price || "N/A"}</Text>
 
-      <Text style={styles.price}>
-        Current Price: ${isNaN(stockDetails?.price) ? "N/A" : stockDetails?.price}
-      </Text>
-      <Text style={styles.detail}>Volume: {isNaN(stockDetails?.volume) ? "N/A" : stockDetails?.volume}</Text>
-
-      {/* Hisse Detayları */}
-      <Text style={styles.sectionTitle}>Stock Details</Text>
-      <Text style={styles.detail}>Open: ${stockDetails?.open}</Text>
-      <Text style={styles.detail}>Close: ${stockDetails?.adj_close}</Text>
-      <Text style={styles.detail}>High: ${stockDetails?.high}</Text>
-      <Text style={styles.detail}>Low: ${stockDetails?.low}</Text>
-      <Text style={styles.detail}>Time: {stockDetails?.timestamp}</Text>      
+      {/* 📦 Beyaz Bilgi Kutusu */}
+      <View style={styles.box}>
+        <Text style={styles.detail}>📈 Volume: {stockDetails?.volume || "N/A"}</Text>
+        <Text style={styles.detail}>📊 High: {stockDetails?.high || "N/A"}</Text>
+        <Text style={styles.detail}>📉 Low: {stockDetails?.low || "N/A"}</Text>
+        <Text style={styles.detail}>📌 Open: {stockDetails?.open || "N/A"}</Text>
+        <Text style={styles.detail}>💰 Adj Close: {stockDetails?.adj_close || "N/A"}</Text>
+      </View>
     </View>
   );
 }
@@ -84,48 +71,87 @@ export default function StockDetailScreen({ route }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f6bfe0",
-    padding: 20,
+    backgroundColor: "#ffe6f0",
+    padding: 10,
+    fontFamily: 'georgia',
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
     marginBottom: 20,
+    fontFamily: 'georgia',
   },
   logo: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     marginRight: 10,
   },
   title: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: "bold",
+    color: "#ff1493",
+    fontFamily: 'georgia',
   },
   price: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: "bold",
-    marginBottom: 10,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    marginTop: 15,
+    marginTop: 10,
+    color: "#d63384",
+    fontFamily: 'georgia',
   },
   detail: {
-    fontSize: 16,
-    marginVertical: 2,
+    fontSize: 18,
+    marginVertical: 5,
+    color: "#333",
+    fontFamily: 'georgia', // Yazıları koyu renk yaparak daha okunabilir hale getirdim
+  },
+  /* 📦 Beyaz Bilgi Kutusu */
+  box: {
+    backgroundColor: "#ffffff", // Kutuyu beyaz yap
+    borderRadius: 16, // Köşeleri yuvarlak yap
+    padding: 15, // İçeriği kutuya biraz mesafeli koy
+    marginTop: 15, // Üst boşluk ekleyerek ayır
+    shadowColor: "#000", // Gölge efekti ekle
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3, // Android için gölge efekti
+  },
+  chartContainer: {
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+    marginBottom: 20,
+  },
+  chartTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    textAlign: "center",
+    color: "#ff1493",
+    marginBottom: 10,
+  },
+  chart: {
+    borderRadius: 16,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
   },
   errorContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#ffcccc",
   },
   errorText: {
     fontSize: 18,
     color: "red",
     fontWeight: "bold",
-    textAlign: "center",
   },
 });

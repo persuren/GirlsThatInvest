@@ -1,86 +1,86 @@
 import React from "react";
 import { View, Text, Dimensions, StyleSheet } from "react-native";
-import { BarChart, LineChart } from "react-native-chart-kit";
+import { LineChart } from "react-native-chart-kit";
 
 export default function StockChart({ stockHistory }) {
-  const screenWidth = Dimensions.get("window").width - 80;
+  const screenWidth = Dimensions.get("window").width - 40;
 
-  // Veriyi uygun formata dönüştürüyoruz
-  const labels = stockHistory.map((_, index) => `D${index + 1}`);
-  const prices = stockHistory.map(item => item.adj_close);
-  const volumes = stockHistory.map(item => item.volume / 1000000); // Milyon olarak göster
+  if (!stockHistory.length) return null;
+
+  // Tarih bilgisini al (ortada göstermek için)
+  const stockDate = new Date(stockHistory[0].timestamp).toLocaleDateString();
+
+  // Fiyat verilerini al
+  const prices = stockHistory.map((item) => item.adj_close);
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Stock Trend</Text>
+    <View style={styles.chartContainer}>
+      <Text style={styles.chartTitle}>Stock Trend</Text>
+      
+      {/* Ortada tarih göster */}
+      <Text style={styles.dateLabel}>{stockDate}</Text>
 
-      {/* Çubuk Grafik (Volume) */}
-      <BarChart
-        data={{
-          labels: labels,
-          datasets: [{ data: volumes }],
-        }}
-        width={screenWidth}
-        height={220}
-        yAxisSuffix="M"
-        chartConfig={{
-          backgroundGradientFrom: "#1E1E1E",
-          backgroundGradientTo: "#3A3A3A",
-          color: (opacity = 1) => `rgba(137, 207, 240, ${opacity})`, // Açık mavi tonları
-          labelColor: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
-          barPercentage: 0.6,
-        }}
-        withInnerLines={false}
-        style={styles.chart}
-      />
-
-      {/* Çizgi Grafik (Price Trend) */}
       <LineChart
         data={{
-          labels: labels,
-          datasets: [{ data: prices, color: (opacity = 1) => `rgba(255, 105, 180, ${opacity})` }],
+          labels: [""], // Boş bırakıyoruz, böylece sadece tarih ortada olacak
+          datasets: [{ data: prices, color: () => "#ffffff" }], // Çizgiyi siyah yap
         }}
         width={screenWidth}
-        height={250}
+        height={200}
         bezier
         chartConfig={{
-          backgroundGradientFrom: "#1E1E1E",
-          backgroundGradientTo: "#3A3A3A",
-          decimalPlaces: 2,
-          color: (opacity = 1) => `rgba(255, 20, 147, ${opacity})`, // Pembe tonları
-          labelColor: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
+          backgroundGradientFrom: "#ff69b4",
+          backgroundGradientTo: "#ff1493",
+          color: () => "#ffffff", // Çizgiyi siyah yap
+          labelColor: () => "#ffffff", // Yazıları siyah yap
           propsForDots: {
-            r: "3",
-            strokeWidth: "1.5",
-            stroke: "#FFD700", // Altın sarısı noktalar
+            r: "0", // Noktaları tamamen kaldır
           },
           propsForBackgroundLines: {
-            stroke: "rgba(255, 255, 255, 0.2)",
+            strokeWidth: 1.5,
+            stroke: "#ffffff", // Arka plan çizgilerini beyaz yaparak görünürlüğü artır
           },
         }}
-        withShadow={true}
-        withInnerLines={true}
-        withOuterLines={false}
         style={styles.chart}
+        withDots={false} // Noktaları tamamen kaldır
+        withInnerLines={false} // İç çizgileri kaldır
+        withOuterLines={false} // Dış çizgileri kaldır
       />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    backgroundColor: "#121212",
-    padding: 20,
-    borderRadius: 12,
+  chartContainer: {
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+    marginBottom: 20,
+    fontWeight: 'bold',
+    fontFamily: 'georgia',
   },
-  title: {
-    fontSize: 18,
-    color: "white",
+  chartTitle: {
+    fontSize: 20,
     fontWeight: "bold",
+    textAlign: "center",
+    fontFamily: 'georgia',
+    color: "#ff1493",
     marginBottom: 10,
   },
+  dateLabel: {
+    fontSize: 18,
+    fontWeight: "bold",
+    textAlign: "center",
+    color: "#d63384",
+    marginBottom: 10,
+    fontFamily: 'georgia',
+  },
   chart: {
-    borderRadius: 12,
-    marginVertical: 8,
+    borderRadius: 16,
   },
 });
