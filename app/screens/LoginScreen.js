@@ -7,8 +7,8 @@ const LoginScreen = ({ onLogin }) => {
     const [loading, setLoading] = useState(false);
 
     // Sabit (hardcoded) kullanıcı bilgileri
-    const validUsername = "1";
-    const validPassword = "1";
+    const validUsername = "admin";
+    const validPassword = "1234";
 
     const handleLogin = async () => {
         if (!username || !password) {
