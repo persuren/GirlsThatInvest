@@ -14,6 +14,7 @@ def get_nasdaq_symbols():
     soup = BeautifulSoup(response.text, "html.parser")
     pattern = re.compile(r'data-rowkey="NASDAQ:(.*?)"')
     symbols = pattern.findall(str(soup))
+    symbols = [symbol for symbol in symbols if symbol != "GOOG"]
     
     symbol_dict = {}
     for symbol in symbols:

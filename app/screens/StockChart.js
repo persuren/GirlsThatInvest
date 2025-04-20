@@ -11,7 +11,7 @@ export default function StockChart({ stockHistory }) {
   const stockDate = new Date(stockHistory[0].timestamp).toLocaleDateString();
 
   // Fiyat verilerini al
-  const prices = stockHistory.map((item) => item.adj_close);
+  const prices = stockHistory.slice(-385).map((item) => item.adj_close);
 
   return (
     <View style={styles.chartContainer}>
