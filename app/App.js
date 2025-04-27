@@ -21,19 +21,19 @@ export default function App() {
     <View style={styles.container}>
       <Stack.Navigator
         screenOptions={{
-          headerTitle: "", // Tüm ekranlarda başlık metnini boş bırak
-          headerBackTitleVisible: false, // Geri butonu metnini gizle
+          headerTitle: "", 
+          headerBackTitleVisible: false, 
         }}
       >
         <Stack.Screen 
           name="Home" 
           component={HomeScreen} 
-          options={{ headerShown: false }} // Home ekranında header'ı tamamen gizle
+          options={{ headerShown: false }} gizle
         />
         <Stack.Screen 
           name="StockDetail" 
           component={StockDetailScreen} 
-          options={{ title: "" }} // Detay ekranında başlığı boş bırak
+          options={{ title: "" }} 
         />
       </Stack.Navigator>
     </View>
