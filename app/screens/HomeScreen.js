@@ -6,28 +6,23 @@ import {
   TouchableOpacity, 
   FlatList, 
   Image, 
-  StyleSheet 
+  StyleSheet,
+  Modal,
+  Pressable
 } from "react-native";
 import { WebView } from 'react-native-webview';
 import { Ionicons } from "@expo/vector-icons";
+import { useFavorites } from "./FavoritesContext";
+import { stockLogos } from "../logos"; 
 
-export default function HomeScreen({ navigation }) {
+export default function HomeScreen({ navigation, BottomNavComponent }) {
   const [stockData, setStockData] = useState([]);
   const [search, setSearch] = useState("");
   const [filteredStocks, setFilteredStocks] = useState([]);
-  const [favorites, setFavorites] = useState({});
+  const { favorites, toggleFavorite } = useFavorites();
+  const [chartType, setChartType] = useState("minute"); // "minute" veya "hour"
+  const [showChartOptions, setShowChartOptions] = useState(false);
   const testLogo = "https://upload.wikimedia.org/wikipedia/commons/1/1e/React_Logo.png";
-
-  const fetchStockLogo = async (symbol) => {
-    try {
-      const response = await fetch(`http://10.0.2.2:5001/get_stock_logo/${symbol}`);
-      const data = await response.json();
-      return data.logo || null;
-    } catch (error) {
-      console.error("Logo alınamadı:", error);
-      return null;
-    }
-  };
 
   const fetchStockDataWithPolling = async () => {
     try {
@@ -53,12 +48,11 @@ export default function HomeScreen({ navigation }) {
           const result = await response.json();
           if (Array.isArray(result.data) && result.data.length > 0) {
             console.log("Veriler başarıyla çekildi!");
-            const stocksWithLogos = await Promise.all(
-              result.data.map(async (stock) => {
-                const logoUrl = await fetchStockLogo(stock.symbol);
-                return { ...stock, logo: logoUrl };
-              })
-            );
+            const stocksWithLogos = result.data.map((stock) => {
+              const symbolUpper = stock.symbol.toUpperCase();
+              const logo = stockLogos[symbolUpper];
+              return { ...stock, logo };
+            });
 
             setStockData(stocksWithLogos);
             setFilteredStocks(stocksWithLogos);
@@ -93,67 +87,108 @@ export default function HomeScreen({ navigation }) {
       
     }
   };
-  const toggleFavorite = (symbol) => {
-    setFavorites((prevFavorites) => ({
-      ...prevFavorites,
-      [symbol]: !prevFavorites[symbol],
-    }));
+
+  const handleChartTypeChange = (type) => {
+    setChartType(type);
+    setShowChartOptions(false);
   };
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <Ionicons name="information-circle-outline" size={24} color="#d63384" />
         <TextInput
           style={styles.searchInput}
-          placeholder="Hisse ara..."
+          placeholder="Search..."
           value={search}
           onChangeText={handleSearch}
         />
-        <Ionicons name="options-outline" size={24} color="#d63384" />
-        <Ionicons name="heart-outline" size={24} color="#d63384" />
+        <TouchableOpacity onPress={() => setShowChartOptions(true)}>
+          <Ionicons name="options-outline" size={24} color="#d63384" />
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => navigation.navigate("Favorites")}> 
+          <Ionicons name="heart-outline" size={24} color="#d63384" />
+        </TouchableOpacity>
       </View>
+
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={showChartOptions}
+        onRequestClose={() => setShowChartOptions(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Grafik Seçenekleri</Text>
+            <TouchableOpacity
+              style={[styles.optionButton, chartType === "minute" && styles.selectedOption]}
+              onPress={() => handleChartTypeChange("minute")}
+            >
+              <Text style={styles.optionText}>Dakikalık Veriler</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.optionButton, chartType === "hour" && styles.selectedOption]}
+              onPress={() => handleChartTypeChange("hour")}
+            >
+              <Text style={styles.optionText}>Saatlik Veriler</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={() => setShowChartOptions(false)}
+            >
+              <Text style={styles.closeButtonText}>Kapat</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       <FlatList
         data={filteredStocks}
         keyExtractor={(item) => item.symbol}
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            onPress={() => navigation.navigate("StockDetail", { stock: item })}
-            style={styles.stockItem}
-          >
-            <Ionicons 
-              name={item.adj_close > item.open ? "arrow-up-outline" : "arrow-down-outline"} 
-              size={24} 
-              color={item.adj_close > item.open ? "green" : "red"} 
-              style={styles.arrowIcon} 
-            />
-            {item.logo ? (
-              <View style={styles.stockLogo}>
-                <WebView
-                  source={{ uri: item.logo }}
-                  style={{ flex: 1 }}
-                  scalesPageToFit={false}
+        renderItem={({ item }) => {
+          const symbolUpper = item.symbol.toUpperCase();
+          const logo = stockLogos[symbolUpper];
+          return (
+            <TouchableOpacity
+              onPress={() => navigation.navigate("StockDetail", { stock: item, chartType })}
+              style={styles.stockItem}
+            >
+              {logo ? (
+                <View style={styles.stockLogo}>
+                  <Image
+                    source={logo}
+                    style={{ width: 48, height: 48, resizeMode: 'contain' }}
+                  />
+                </View>
+              ) : (
+                <View style={styles.stockLogoPlaceholder}>
+                  <Text style={styles.logoText}>No Logo</Text>
+                </View>
+              )}
+              <View style={styles.stockInfoRow}>
+                <View style={styles.stockInfo}>
+                  <Text style={styles.stockSymbol}>{item.symbol}</Text>
+                  <Text style={styles.stockPrice}>${item.price ? item.price : "N/A"}</Text>
+                </View>
+                <Ionicons 
+                  name={item.adj_close > item.open ? "arrow-up-outline" : "arrow-down-outline"} 
+                  size={28} 
+                  color={item.adj_close > item.open ? "green" : "red"} 
+                  style={styles.arrowIcon} 
                 />
               </View>
-            ) : (
-              <View style={styles.stockLogoPlaceholder}>
-                <Text style={styles.logoText}>Logo Yok</Text>
-              </View>
-            )}
-            <View style={styles.stockInfo}>
-              <Text style={styles.stockSymbol}>{item.symbol}</Text>
-              <Text style={styles.stockPrice}>${item.price ? item.price : "N/A"}</Text>
-            </View>
-            <TouchableOpacity onPress={() => toggleFavorite(item.symbol)} style={styles.heartContainer}>
-              <Ionicons 
-                name={favorites[item.symbol] ? "heart" : "heart-outline"} 
-                size={24} 
-                color={favorites[item.symbol] ? "red" : "#d63384"} 
-              />
+              <TouchableOpacity onPress={() => toggleFavorite(item.symbol, item)} style={styles.heartContainer}>
+                <Ionicons 
+                  name={favorites[item.symbol] ? "heart" : "heart-outline"} 
+                  size={24} 
+                  color={favorites[item.symbol] ? "red" : "#d63384"} 
+                />
+              </TouchableOpacity>
             </TouchableOpacity>
-          </TouchableOpacity>
-        )}
+          );
+        }}
       />
+      {BottomNavComponent}
     </View>
   );
 }
@@ -193,15 +228,19 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
   },
   stockLogo: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     marginRight: 15,
+    overflow: 'hidden',
+    backgroundColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   stockLogoPlaceholder: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     marginRight: 15,
     backgroundColor: "#ffc0cb",
     justifyContent: "center",
@@ -226,8 +265,64 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#333",
   },
-
+  stockInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    justifyContent: 'space-between',
+  },
   arrowIcon: {
-    marginLeft: 10,
+    marginLeft: 8,
+  },
+  heartContainer: {
+    padding: 5,
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    borderRadius: 20,
+    padding: 20,
+    width: '80%',
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 20,
+    color: '#d63384',
+  },
+  optionButton: {
+    backgroundColor: '#f6bfe0',
+    padding: 15,
+    borderRadius: 10,
+    width: '100%',
+    marginBottom: 10,
+    alignItems: 'center',
+  },
+  selectedOption: {
+    backgroundColor: '#d63384',
+  },
+  optionText: {
+    color: '#333',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  closeButton: {
+    backgroundColor: '#ffc0cb',
+    padding: 15,
+    borderRadius: 10,
+    width: '100%',
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  closeButtonText: {
+    color: '#333',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });

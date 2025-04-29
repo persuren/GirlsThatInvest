@@ -1,0 +1,123 @@
+import os
+import requests
+from tqdm import tqdm
+
+symbol_to_domain = {
+    "AAPL": "apple.com",
+    "ABNB": "airbnb.com",
+    "ADBE": "adobe.com",
+    "ADI": "analog-devices.com",
+    "ADP": "automatic-data-processing.com",
+    "ADSK": "autodesk.com",
+    "AEP": "american-electric-power.com",
+    "AMAT": "applied-materials.com",
+    "AMD": "advanced-micro-devices.com",
+    "AMGN": "amgen.com",
+    "AMZN": "amazon.com",
+    "ANSS": "ansys.com",
+    "APP": "applovin.com",
+    "ASML": "asml.com",
+    "ARM": "arm.com",
+    "AVGO": "broadcom.com",
+    "AXON": "axon-enterprise.com",
+    "AZN": "astrazeneca.com",
+    "BIIB": "biogen.com",
+    "BKNG": "booking.com",
+    "BKR": "baker-hughes.com",
+    "CCEP": "coca-cola.com",
+    "CDNS": "cadence-design-systems.com",
+    "CDW": "cdw.com",
+    "CEG": "constellation-energy.com",
+    "CHTR": "charter.com",
+    "CMCSA": "comcast.com",
+    "COST": "costco-wholesale.com",
+    "CPRT": "copart.com",
+    "CRWD": "crowdstrike.com",
+    "CSCO": "cisco.com",
+    "CSGP": "costar-group.com",
+    "CSX": "csx.com",
+    "CTAS": "cintas.com",
+    "CTSH": "cognizant.com",
+    "DASH": "dash.com",
+    "DDOG": "datadog.com",
+    "DXCM": "dexcom.com",
+    "EA": "electronic-arts.com",
+    "EXC": "exelon.com",
+    "FANG": "diamondback.com",
+    "FAST": "fastenal.com",
+    "FTNT": "fortinet.com",
+    "GEHC": "ge-healthcare-technologies.com",
+    "GFS": "globalfoundries.com",
+    "GILD": "gilead.com",
+    "GOOGL": "google.com",
+    "HON": "honeywell.com",
+    "IDXX": "idexx-laboratories.com",
+    "INTC": "intel.com",
+    "INTU": "intuit.com",
+    "ISRG": "intuitive-surgical.com",
+    "KDP": "keurig-dr-pepper.com",
+    "KHC": "kraft-heinz.com",
+    "KLAC": "kla-tencor.com",
+    "LIN": "linde.com",
+    "LRCX": "lam-research.com",
+    "LULU": "lululemon-athletica.com",
+    "MAR": "marriott.com",
+    "MCHP": "microchip-technology.com",
+    "MDLZ": "mondelez.com",
+    "MELI": "mercadolibre.com",
+    "META": "meta-platforms.com",
+    "MNST": "monster-beverage.com",
+    "MRVL": "marvell-tech.com",
+    "MSFT": "microsoft.com",
+    "MSTR": "microstrategy.com",
+    "MU": "micron-technology.com",
+    "NFLX": "netflix.com",
+    "NVDA": "nvidia.com",
+    "NXPI": "nxp-semiconductors.com",
+    "ODFL": "old-dominion.com",
+    "ON": "on-semiconductors.com",
+    "ORLY": "o-reilly-auto.com",
+    "PANW": "palo-alto-networks.com",
+    "PAYX": "paychex.com",
+    "PCAR": "paccar.com",
+    "PDD": "pinduoduo.com",
+    "PEP": "pepsico.com",
+    "PLTR": "palantir.com",
+    "PYPL": "paypal.com",
+    "QCOM": "qualcomm.com",
+    "REGN": "regeneron-pharmaceuticals.com",
+    "ROP": "roper-technologies.com",
+    "ROST": "ross-stores.com",
+    "SBUX": "starbucks.com",
+    "SNPS": "synopsys.com",
+    "TEAM": "atlassian.com",
+    "TMUS": "t-mobile.com",
+    "TSLA": "tesla.com",
+    "TTD": "the-trade-desk.com",
+    "TTWO": "take-two-interactive-software.com",
+    "TXN": "texas-instruments.com",
+    "VRSK": "verisk-analytics.com",
+    "VRTX": "vertex-pharmaceuticals.com",
+    "WBD": "warner-bros-discovery.com",
+    "WDAY": "workday.com",
+    "XEL": "xcel-energy.com",
+    "ZS": "zscaler.com",
+}
+
+OUTPUT_DIR = "output_png"
+os.makedirs(OUTPUT_DIR, exist_ok=True)
+symbol_to_domain2 = {
+    "XEL": "xcelenergy.com",
+}
+for symbol, domain in tqdm(symbol_to_domain2.items(), desc="Logos"):
+    url = f"https://logo.clearbit.com/{domain}"
+    path = os.path.join(OUTPUT_DIR, f"{symbol}.png")
+    try:
+        resp = requests.get(url)
+        resp.raise_for_status()
+        with open(path, "wb") as f:
+            f.write(resp.content)
+    except Exception as e:
+        print(f"{symbol} için hata: {e}")
+
+print("Tüm logolar başarıyla indirildi!")

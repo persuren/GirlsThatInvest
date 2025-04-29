@@ -11,8 +11,9 @@ import {
 } from "react-native";
 import StockChart from "./StockChart";
 import { Ionicons } from '@expo/vector-icons';
+import BottomNav from "./BottomNav";
 
-export default function StockDetailScreen({ route, navigation }) {
+export default function StockDetailScreen({ route, navigation, BottomNavComponent }) {
   const stock = route?.params?.stock;
   const [stockDetails, setStockDetails] = useState(null);
   const [pastPrices, setPastPrices] = useState([]);
@@ -21,6 +22,7 @@ export default function StockDetailScreen({ route, navigation }) {
   const [news, setNews] = useState([]);
   const [newsLoading, setNewsLoading] = useState(false);
   const [favorites, setFavorites] = useState({});
+  const [chartType, setChartType] = useState("minute"); // "minute" veya "hour"
 
   // HEADER ÖZELLEŞTİRME
   React.useLayoutEffect(() => {
@@ -63,7 +65,7 @@ export default function StockDetailScreen({ route, navigation }) {
     const fetchStockData = async () => {
       try {
         const response = await fetch(
-          `http://10.0.2.2:5001/get_stock_history/${stock.symbol}`
+          `http://10.0.2.2:5001/get_stock_history/${stock.symbol}?type=${chartType}`
         );
         const data = await response.json();
         if (data && data.length > 0) {
@@ -82,7 +84,7 @@ export default function StockDetailScreen({ route, navigation }) {
       }
     };
     fetchStockData();
-  }, [stock]);
+  }, [stock, chartType]);
 
   const fetchNews = async () => {
     try {
@@ -150,6 +152,7 @@ export default function StockDetailScreen({ route, navigation }) {
     return (
       <View style={styles.errorContainer}>
         <Text style={styles.errorText}>Stock data is unavailable.</Text>
+        {BottomNavComponent}
       </View>
     );
   }
@@ -158,45 +161,69 @@ export default function StockDetailScreen({ route, navigation }) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#ff69b4" />
+        {BottomNavComponent}
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <StockChart stockHistory={pastPrices} />
+    <View style={{ flex: 1 }}>
+      <View style={styles.container}>
+        <Text style={styles.stockName}>{stock?.symbol}</Text>
+        
+        <View style={styles.chartTypeContainer}>
+          <TouchableOpacity
+            style={[styles.chartTypeButton, chartType === "minute" && styles.activeChartType]}
+            onPress={() => setChartType("minute")}
+          >
+            <Text style={[styles.chartTypeText, chartType === "minute" && styles.activeChartTypeText]}>
+            Minute
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.chartTypeButton, chartType === "hour" && styles.activeChartType]}
+            onPress={() => setChartType("hour")}
+          >
+            <Text style={[styles.chartTypeText, chartType === "hour" && styles.activeChartTypeText]}>
+              Hourly
+            </Text>
+          </TouchableOpacity>
+        </View>
 
-      <Text style={styles.price}>
-        Current Price: ${stockDetails?.price || "N/A"}
-      </Text>
+        <StockChart stockHistory={pastPrices} />
 
-      <View style={styles.tabContainer}>
-        <TouchableOpacity
-          style={[styles.tabButton, activeTab === "details" && styles.activeTab]}
-          onPress={() => setActiveTab("details")}
-        >
-          <Text style={activeTab === "details" ? styles.activeTabText : styles.tabText}>
-            📄 Details
-          </Text>
-        </TouchableOpacity>
+        <Text style={styles.price}>
+          Current Price: ${stockDetails?.price || "N/A"}
+        </Text>
 
-        <TouchableOpacity
-          style={[styles.tabButton, activeTab === "news" && styles.activeTab]}
-          onPress={() => {
-            setActiveTab("news");
-            if (news.length === 0) fetchNews();
-          }}
-        >
-          <Text style={activeTab === "news" ? styles.activeTabText : styles.tabText}>
-            🗞️ News
-          </Text>
-        </TouchableOpacity>
+        <View style={styles.tabContainer}>
+          <TouchableOpacity
+            style={[styles.tabButton, activeTab === "details" && styles.activeTab]}
+            onPress={() => setActiveTab("details")}
+          >
+            <Text style={activeTab === "details" ? styles.activeTabText : styles.tabText}>
+              📄 Details
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.tabButton, activeTab === "news" && styles.activeTab]}
+            onPress={() => {
+              setActiveTab("news");
+              if (news.length === 0) fetchNews();
+            }}
+          >
+            <Text style={activeTab === "news" ? styles.activeTabText : styles.tabText}>
+              🗞️ News
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {renderContent()}
       </View>
-
-      {renderContent()}
+      {BottomNavComponent}
     </View>
   );
-
 }
 
 const styles = StyleSheet.create({
@@ -212,7 +239,7 @@ const styles = StyleSheet.create({
     marginLeft: 15,
   },
   headerStockSymbol: {
-    fontSize: 24, // BOYUT BÜYÜTÜLDÜ
+    fontSize: 18, // BOYUT BÜYÜTÜLDÜ
     fontWeight: 'bold',
     color: '#ff1493', // PEMBE RENK
     fontFamily: 'georgia',
@@ -372,5 +399,38 @@ const styles = StyleSheet.create({
   },
   newsContentContainer: {
     paddingBottom: 20, // İçerik ile container arasına padding
+  },
+  stockName: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: '#ff1493',
+    textAlign: 'center',
+    marginBottom: 10,
+    marginTop: 5,
+    fontFamily: 'georgia',
+  },
+  chartTypeContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginVertical: 10,
+  },
+  chartTypeButton: {
+    backgroundColor: '#f6bfe0',
+    padding: 10,
+    borderRadius: 20,
+    marginHorizontal: 5,
+    minWidth: 100,
+    alignItems: 'center',
+  },
+  activeChartType: {
+    backgroundColor: '#d63384',
+  },
+  chartTypeText: {
+    color: '#333',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  activeChartTypeText: {
+    color: '#fff',
   },
 });
