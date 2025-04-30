@@ -53,10 +53,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 6,
     backgroundColor: '#fff0f5',
-    borderTopWidth: 1,
-    borderColor: '#ffb6d5',
+    width: '100%',
   },
   navButton: {
     flex: 1,

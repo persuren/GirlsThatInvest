@@ -67,54 +67,110 @@ def fetch_and_store_data():
             """
         cursor.execute(create_table_query)
         try:
-            data = yf.download(symbol, period='3d', interval='1m')
-            data.index = data.index.tz_convert('UTC') if data.index.tz is not None else data.index.tz_localize('UTC')
-            start_time = pd.Timestamp.now(tz=data.index.tz) - timedelta(days=3)
-            data = data[data.index >= start_time]
+            # Dakikalık veriler için son 7 gün
+            data = yf.download(symbol, period='7d', interval='1m')
+            
             if data.empty:
-                print(f"{symbol} için son 3 günlük veri bulunamadı!")
+                print(f"{symbol} için veri bulunamadı!")
                 continue
+
+            # Zaman dilimini UTC'ye çevir
+            data.index = data.index.tz_convert('UTC') if data.index.tz is not None else data.index.tz_localize('UTC')
+            
+            # Market saatleri kontrolü için EST'ye çevir
+            est_times = data.index.tz_convert('US/Eastern')
+            
+            # Market saatleri filtresi (09:30 - 16:00 EST)
+            market_hours_mask = (est_times.hour * 100 + est_times.minute >= 930) & \
+                              (est_times.hour * 100 + est_times.minute <= 1600)
+            
+            data = data[market_hours_mask]
+            
+            # Geçersiz verileri filtrele
+            valid_data = data[
+                (data['Close'] > 0) & 
+                (data['Volume'] > 0) & 
+                (data['High'] > data['Low']) & 
+                (data['Open'] > 0) & 
+                (data['Close'].notna()) & 
+                (data['Volume'].notna())
+            ]
+            
+            # NaN değerleri forward fill ile doldur
+            valid_data = valid_data.ffill().bfill()
+            
             latest_entry = None
             rows_to_insert = []
-            for index, row in data.iterrows():
+            
+            for index, row in valid_data.iterrows():
                 try:
-                    price = float(row['Close'].item())
-                    volume = int(row['Volume'].item())
-                    high = float(row['High'].item())
-                    low = float(row['Low'].item())
-                    open_value = float(row['Open'].item())
-                    adj_close = float(row['Close'].item())
                     timestamp = index.strftime("%Y-%m-%d %H:%M:%S")
+                    price = float(row['Close'].iloc[0])
+                    volume = int(row['Volume'].iloc[0])
+                    high = float(row['High'].iloc[0])
+                    low = float(row['Low'].iloc[0])
+                    open_value = float(row['Open'].iloc[0])
+                    adj_close = float(row['Close'].iloc[0])
+                    
+                    # Son kaydı veritabanından çek ve fiyat farkını kontrol et
+                    cursor.execute(f"SELECT price FROM `{symbol}` ORDER BY timestamp DESC LIMIT 1")
+                    last_row = cursor.fetchone()
+                    if last_row:
+                        last_price = float(last_row[0])
+                        if last_price > 0:
+                            fark = abs(price - last_price) / last_price
+                            if fark > 0.3:
+                                print(f"%30'dan fazla fiyat farkı: {last_price} -> {price}, kayıt atlandı.")
+                                continue  # Bu satırı kaydetme
+                    
+                    # Mantıksız değerleri kontrol et
+                    if not (low <= open_value <= high and low <= price <= high):
+                        print(f"Mantıksız fiyat değerleri, bu satır atlanıyor: {index}")
+                        continue
+                    
                     rows_to_insert.append((price, volume, high, low, open_value, adj_close, timestamp))
-                    latest_entry = {
-                        "symbol": symbol,
-                        "price": price,
-                        "volume": volume,
-                        "high": high,
-                        "low": low,
-                        "open": open_value,
-                        "adj_close": adj_close,
-                        "timestamp": timestamp
-                    }
+                    
+                    if latest_entry is None or timestamp > latest_entry['timestamp']:
+                        latest_entry = {
+                            "symbol": symbol,
+                            "price": price,
+                            "volume": volume,
+                            "high": high,
+                            "low": low,
+                            "open": open_value,
+                            "adj_close": adj_close,
+                            "timestamp": timestamp
+                        }
                 except Exception as e:
-                    print(f"Satır işlenirken hata oluştu: {e}")
+                    print(f"Satır işlenirken hata oluştu ({symbol}, {index}): {e}")
+                    continue
+
             if rows_to_insert:
-                insert_query = f"""
-                    INSERT INTO `{symbol}` (price, volume, high, low, open, adj_close, timestamp) 
-                    VALUES (%s, %s, %s, %s, %s, %s, %s)
-                    ON DUPLICATE KEY UPDATE 
-                        price = VALUES(price), 
-                        volume = VALUES(volume),
-                        high = VALUES(high),
-                        low = VALUES(low),
-                        open = VALUES(open),
-                        adj_close = VALUES(adj_close)
-                """
-                cursor.executemany(insert_query, rows_to_insert)
-            if latest_entry:
-                latest_stock_data[symbol] = latest_entry
+                try:
+                    insert_query = f"""
+                        INSERT INTO `{symbol}` 
+                        (price, volume, high, low, open, adj_close, timestamp) 
+                        VALUES (%s, %s, %s, %s, %s, %s, %s)
+                        ON DUPLICATE KEY UPDATE
+                            price = VALUES(price),
+                            volume = VALUES(volume),
+                            high = VALUES(high),
+                            low = VALUES(low),
+                            open = VALUES(open),
+                            adj_close = VALUES(adj_close)
+                    """
+                    cursor.executemany(insert_query, rows_to_insert)
+                    
+                    if latest_entry:
+                        latest_stock_data[symbol] = latest_entry
+                except Exception as e:
+                    print(f"Veri eklenirken hata oluştu ({symbol}): {e}")
+                    continue
+                    
         except Exception as e:
             print(f"Hata oluştu ({symbol}): {e}")
+            continue
+
     conn.commit()
     cursor.close()
     conn.close()
@@ -133,19 +189,31 @@ def get_stock_data():
     cursor = conn.cursor()
     latest_data = []
     for symbol in stocks:
-        cursor.execute(f"SELECT * FROM `{symbol}` ORDER BY timestamp DESC LIMIT 1")
-        row = cursor.fetchone()
-        if row:
-            latest_data.append({
-                "symbol": symbol,
-                "price": row[1],
-                "volume": row[2],
-                "high": row[3],
-                "low": row[4],
-                "open": row[5],
-                "adj_close": row[6],
-                "timestamp": row[7]
-            })
+        try:
+            # Son geçerli fiyatı bul (NULL olmayan en son adj_close değeri)
+            query = f"""
+                SELECT * FROM `{symbol}` 
+                WHERE adj_close IS NOT NULL 
+                ORDER BY timestamp DESC 
+                LIMIT 1
+            """
+            cursor.execute(query)
+            row = cursor.fetchone()
+            if row:
+                latest_data.append({
+                    "symbol": symbol,
+                    "price": float(row[6]),  # adj_close değeri
+                    "volume": row[2],
+                    "high": row[3],
+                    "low": row[4],
+                    "open": row[5],
+                    "adj_close": float(row[6]),
+                    "timestamp": row[7].strftime("%Y-%m-%d %H:%M:%S") if row[7] else None
+                })
+        except Exception as e:
+            print(f"Error fetching data for {symbol}: {e}")
+            continue
+    
     cursor.close()
     conn.close()
     return jsonify({"data": latest_data})
@@ -158,60 +226,63 @@ def get_stock_history(symbol):
         chart_type = request.args.get('type', 'minute')
         
         if chart_type == 'minute':
-            query = f"SELECT * FROM `{symbol}` ORDER BY timestamp DESC"
-            cursor.execute(query)
-            data = cursor.fetchall()
-        else:
-            # En son dakikalık veriyi al
-            latest_minute_query = f"SELECT * FROM `{symbol}` ORDER BY timestamp DESC LIMIT 1"
-            cursor.execute(latest_minute_query)
-            latest_minute_data = cursor.fetchone()
-            
-            # Saatlik veriler için
+            # Son 1 günlük dakikalık veriler
             query = f"""
-                SELECT 
-                    DATE_FORMAT(timestamp, '%Y-%m-%d %H:00:00') as hour,
-                    MIN(low) as low,
-                    MAX(high) as high,
-                    SUBSTRING_INDEX(GROUP_CONCAT(open ORDER BY timestamp), ',', 1) as open,
-                    SUBSTRING_INDEX(GROUP_CONCAT(adj_close ORDER BY timestamp DESC), ',', 1) as adj_close,
-                    SUM(volume) as volume
-                FROM `{symbol}`
-                GROUP BY DATE_FORMAT(timestamp, '%Y-%m-%d %H:00:00')
-                ORDER BY hour DESC
+                SELECT * FROM `{symbol}` 
+                WHERE timestamp >= DATE_SUB(NOW(), INTERVAL 1 DAY)
+                AND TIME(timestamp) BETWEEN '09:30:00' AND '16:00:00'  # Sadece market saatlerindeki verileri al
+                ORDER BY timestamp ASC
             """
             cursor.execute(query)
             data = cursor.fetchall()
-            
-            # Verileri orijinal formata dönüştür
-            formatted_data = []
-            for row in data:
+        else:
+            # Son 7 günlük saatlik veriler
+            query = f"""
+                SELECT 
+                    t.hour_ts as timestamp,
+                    MIN(t.low) as low,
+                    MAX(t.high) as high,
+                    SUBSTRING_INDEX(GROUP_CONCAT(t.open ORDER BY t.timestamp), ',', 1) as open,
+                    SUBSTRING_INDEX(GROUP_CONCAT(t.adj_close ORDER BY t.timestamp DESC), ',', 1) as adj_close,
+                    SUM(t.volume) as volume
+                FROM (
+                    SELECT *,
+                        DATE_FORMAT(timestamp, '%Y-%m-%d %H:00:00') as hour_ts
+                    FROM `{symbol}`
+                    WHERE timestamp >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+                      AND TIME(timestamp) BETWEEN '09:30:00' AND '16:00:00'
+                ) t
+                GROUP BY t.hour_ts
+                ORDER BY t.hour_ts ASC
+            """
+            cursor.execute(query)
+            data = cursor.fetchall()
+
+        if not data:
+            return jsonify({"error": "No data found for the given stock symbol."}), 404
+
+        # Verileri formatlayarak döndür
+        formatted_data = []
+        for row in data:
+            try:
                 formatted_data.append({
-                    'timestamp': row['hour'],
+                    'timestamp': str(row['timestamp']),
                     'low': float(row['low']),
                     'high': float(row['high']),
                     'open': float(row['open']),
                     'adj_close': float(row['adj_close']),
                     'volume': int(row['volume'])
                 })
-            
-            # En son dakikalık veriyi ekle
-            if latest_minute_data:
-                formatted_data.insert(0, {
-                    'timestamp': latest_minute_data['timestamp'],
-                    'low': float(latest_minute_data['low']),
-                    'high': float(latest_minute_data['high']),
-                    'open': float(latest_minute_data['open']),
-                    'adj_close': float(latest_minute_data['adj_close']),
-                    'volume': int(latest_minute_data['volume'])
-                })
-            
-            data = formatted_data
+            except (ValueError, TypeError) as e:
+                print(f"Error formatting row data: {e}")
+                continue
 
-        if not data:
-            return jsonify({"error": "No data found for the given stock symbol."}), 404
-        return jsonify(data)
+        if not formatted_data:
+            return jsonify({"error": "No valid data points found."}), 404
+
+        return jsonify(formatted_data)
     except Exception as e:
+        print(f"Error in get_stock_history: {e}")
         return jsonify({"error": str(e)}), 500
     finally:
         cursor.close()

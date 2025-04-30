@@ -22,6 +22,9 @@ export default function HomeScreen({ navigation, BottomNavComponent }) {
   const { favorites, toggleFavorite } = useFavorites();
   const [chartType, setChartType] = useState("minute"); // "minute" veya "hour"
   const [showChartOptions, setShowChartOptions] = useState(false);
+  const [sortOrder, setSortOrder] = useState(null); // null, 'asc', 'desc'
+  const [showSortOptions, setShowSortOptions] = useState(false);
+  const [sortBy, setSortBy] = useState('symbol'); // 'symbol' veya 'price'
   const testLogo = "https://upload.wikimedia.org/wikipedia/commons/1/1e/React_Logo.png";
 
   const fetchStockDataWithPolling = async () => {
@@ -75,16 +78,72 @@ export default function HomeScreen({ navigation, BottomNavComponent }) {
     fetchStockDataWithPolling();
   }, []);
 
+  const handleSort = (order, by) => {
+    setSortOrder(order);
+    setSortBy(by);
+    setShowSortOptions(false);
+    const sortedStocks = [...filteredStocks].sort((a, b) => {
+      if (by === 'symbol') {
+        if (order === 'asc') {
+          return a.symbol.localeCompare(b.symbol);
+        } else {
+          return b.symbol.localeCompare(a.symbol);
+        }
+      } else { // by === 'price'
+        if (order === 'asc') {
+          return (a.price || 0) - (b.price || 0);
+        } else {
+          return (b.price || 0) - (a.price || 0);
+        }
+      }
+    });
+    setFilteredStocks(sortedStocks);
+  };
+
   const handleSearch = (text) => {
     setSearch(text);
     if (text === "") {
-      setFilteredStocks(stockData);
+      const stocks = [...stockData];
+      if (sortOrder) {
+        stocks.sort((a, b) => {
+          if (sortBy === 'symbol') {
+            if (sortOrder === 'asc') {
+              return a.symbol.localeCompare(b.symbol);
+            } else {
+              return b.symbol.localeCompare(a.symbol);
+            }
+          } else { // sortBy === 'price'
+            if (sortOrder === 'asc') {
+              return (a.price || 0) - (b.price || 0);
+            } else {
+              return (b.price || 0) - (a.price || 0);
+            }
+          }
+        });
+      }
+      setFilteredStocks(stocks);
     } else {
       const filtered = stockData.filter((stock) =>
         stock.symbol.toLowerCase().includes(text.toLowerCase())
       );
+      if (sortOrder) {
+        filtered.sort((a, b) => {
+          if (sortBy === 'symbol') {
+            if (sortOrder === 'asc') {
+              return a.symbol.localeCompare(b.symbol);
+            } else {
+              return b.symbol.localeCompare(a.symbol);
+            }
+          } else { // sortBy === 'price'
+            if (sortOrder === 'asc') {
+              return (a.price || 0) - (b.price || 0);
+            } else {
+              return (b.price || 0) - (a.price || 0);
+            }
+          }
+        });
+      }
       setFilteredStocks(filtered);
-      
     }
   };
 
@@ -94,22 +153,71 @@ export default function HomeScreen({ navigation, BottomNavComponent }) {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={{ flex: 1, backgroundColor: '#f6bfe0' }}>
       <View style={styles.header}>
-        <Ionicons name="information-circle-outline" size={24} color="#d63384" />
+        <View style={styles.iconWrapper}>
+          <Ionicons name="information-circle-outline" size={28} color="#d63384" />
+        </View>
         <TextInput
           style={styles.searchInput}
           placeholder="Search..."
           value={search}
           onChangeText={handleSearch}
         />
-        <TouchableOpacity onPress={() => setShowChartOptions(true)}>
-          <Ionicons name="options-outline" size={24} color="#d63384" />
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => navigation.navigate("Favorites")}> 
-          <Ionicons name="heart-outline" size={24} color="#d63384" />
-        </TouchableOpacity>
+        <View style={styles.iconWrapper}>
+          <TouchableOpacity onPress={() => setShowSortOptions(true)}>
+            <Ionicons name="funnel-outline" size={28} color="#d63384" />
+          </TouchableOpacity>
+        </View>
       </View>
+
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={showSortOptions}
+        onRequestClose={() => setShowSortOptions(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Sıralama Seçenekleri</Text>
+            
+            <Text style={styles.sectionTitle}>Sembole Göre</Text>
+            <TouchableOpacity
+              style={[styles.optionButton, sortOrder === 'asc' && sortBy === 'symbol' && styles.selectedOption]}
+              onPress={() => handleSort('asc', 'symbol')}
+            >
+              <Text style={styles.optionText}>A-Z Sırala</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.optionButton, sortOrder === 'desc' && sortBy === 'symbol' && styles.selectedOption]}
+              onPress={() => handleSort('desc', 'symbol')}
+            >
+              <Text style={styles.optionText}>Z-A Sırala</Text>
+            </TouchableOpacity>
+
+            <Text style={styles.sectionTitle}>Fiyata Göre</Text>
+            <TouchableOpacity
+              style={[styles.optionButton, sortOrder === 'asc' && sortBy === 'price' && styles.selectedOption]}
+              onPress={() => handleSort('asc', 'price')}
+            >
+              <Text style={styles.optionText}>Fiyat (Artan)</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.optionButton, sortOrder === 'desc' && sortBy === 'price' && styles.selectedOption]}
+              onPress={() => handleSort('desc', 'price')}
+            >
+              <Text style={styles.optionText}>Fiyat (Azalan)</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={() => setShowSortOptions(false)}
+            >
+              <Text style={styles.closeButtonText}>Kapat</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       <Modal
         animationType="slide"
@@ -143,6 +251,7 @@ export default function HomeScreen({ navigation, BottomNavComponent }) {
       </Modal>
 
       <FlatList
+        contentContainerStyle={{ padding: 10 }}
         data={filteredStocks}
         keyExtractor={(item) => item.symbol}
         renderItem={({ item }) => {
@@ -168,12 +277,14 @@ export default function HomeScreen({ navigation, BottomNavComponent }) {
               <View style={styles.stockInfoRow}>
                 <View style={styles.stockInfo}>
                   <Text style={styles.stockSymbol}>{item.symbol}</Text>
-                  <Text style={styles.stockPrice}>${item.price ? item.price : "N/A"}</Text>
+                  <Text style={styles.stockPrice}>
+                    ${typeof item.price === 'number' ? item.price.toFixed(2) : "N/A"}
+                  </Text>
                 </View>
                 <Ionicons 
-                  name={item.adj_close > item.open ? "arrow-up-outline" : "arrow-down-outline"} 
+                  name={typeof item.price === 'number' && typeof item.open === 'number' && item.price > item.open ? "arrow-up-outline" : "arrow-down-outline"} 
                   size={28} 
-                  color={item.adj_close > item.open ? "green" : "red"} 
+                  color={typeof item.price === 'number' && typeof item.open === 'number' && item.price > item.open ? "green" : "red"} 
                   style={styles.arrowIcon} 
                 />
               </View>
@@ -188,7 +299,9 @@ export default function HomeScreen({ navigation, BottomNavComponent }) {
           );
         }}
       />
-      {BottomNavComponent}
+      <View style={{ width: '100%', backgroundColor: 'transparent' }}>
+        {BottomNavComponent}
+      </View>
     </View>
   );
 }
@@ -196,16 +309,21 @@ export default function HomeScreen({ navigation, BottomNavComponent }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f6bfe0",
-    padding: 10,
     fontWeight: 'bold',
     fontFamily: 'georgia',
+    marginTop: 12,
   },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 10,
+    paddingHorizontal: 8,
+  },
+  iconWrapper: {
+    width: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   searchInput: {
     backgroundColor: "#fff",
@@ -213,6 +331,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 10,
     padding: 8,
     borderRadius: 8,
+    marginTop: 10,
   },
   stockItem: {
     flexDirection: "row",
@@ -325,4 +444,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#d63384',
+    marginTop: 15,
+    marginBottom: 5,
+    alignSelf: 'flex-start',
+  }
 });

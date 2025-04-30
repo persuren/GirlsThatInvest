@@ -69,13 +69,24 @@ export default function StockDetailScreen({ route, navigation, BottomNavComponen
         );
         const data = await response.json();
         if (data && data.length > 0) {
+          // Dakikalık grafik için son 385 veri noktası (yaklaşık 1 gün)
+          // Saatlik grafik için tüm veri noktaları (7 gün)
+          const dataPoints = chartType === 'minute' ? 
+            data.slice(-385) : 
+            data;
+
           setPastPrices(
-            data.map((item) => ({
+            dataPoints.map((item) => ({
               adj_close: item.adj_close,
               timestamp: item.timestamp,
             }))
           );
-          setStockDetails(data[0]);
+
+          // Son geçerli fiyatı bul
+          const lastValidPrice = data
+            .filter(item => item.adj_close !== null && item.adj_close !== undefined)
+            .slice(-1)[0];
+          setStockDetails(lastValidPrice || data[0]);
         }
       } catch (error) {
         console.error("Error fetching stock data:", error);
@@ -190,10 +201,10 @@ export default function StockDetailScreen({ route, navigation, BottomNavComponen
           </TouchableOpacity>
         </View>
 
-        <StockChart stockHistory={pastPrices} />
+        <StockChart stockHistory={pastPrices} chartType={chartType} />
 
         <Text style={styles.price}>
-          Current Price: ${stockDetails?.price || "N/A"}
+          Current Price: ${stockDetails?.adj_close ? stockDetails.adj_close.toFixed(2) : "N/A"}
         </Text>
 
         <View style={styles.tabContainer}>
