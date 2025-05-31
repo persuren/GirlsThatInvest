@@ -44,7 +44,7 @@ def get_db_connection():
     conn.close()
 """
 
-stocks = nasdaq_symbols  # İzlenen NASDAQ hisseleri
+stocks = nasdaq_symbols
 
 
 def fetch_and_store_data():
@@ -68,7 +68,7 @@ def fetch_and_store_data():
         cursor.execute(create_table_query)
         try:
             # Dakikalık veriler için son 7 gün
-            data = yf.download(symbol, period='7d', interval='1m')
+            data = yf.download(symbol, period='3d', interval='1m')
             
             if data.empty:
                 print(f"{symbol} için veri bulunamadı!")
@@ -121,7 +121,7 @@ def fetch_and_store_data():
                             fark = abs(price - last_price) / last_price
                             if fark > 0.3:
                                 print(f"%30'dan fazla fiyat farkı: {last_price} -> {price}, kayıt atlandı.")
-                                continue  # Bu satırı kaydetme
+                                continue 
                     
                     # Mantıksız değerleri kontrol et
                     if not (low <= open_value <= high and low <= price <= high):
@@ -229,7 +229,7 @@ def get_stock_history(symbol):
             # Son 1 günlük dakikalık veriler
             query = f"""
                 SELECT * FROM `{symbol}` 
-                WHERE timestamp >= DATE_SUB(NOW(), INTERVAL 1 DAY)
+                WHERE timestamp >= DATE_SUB(NOW(), INTERVAL 2 DAY)
                 AND TIME(timestamp) BETWEEN '09:30:00' AND '16:00:00'  # Sadece market saatlerindeki verileri al
                 ORDER BY timestamp ASC
             """

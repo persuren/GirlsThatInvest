@@ -5,6 +5,7 @@ import HomeScreen from "./screens/HomeScreen";
 import StockDetailScreen from "./screens/StockDetailScreen";
 import FavoritesScreen from "./screens/FavoritesScreen";
 import { FavoritesProvider } from "./screens/FavoritesContext";
+import { NotificationProvider } from "./screens/NotificationContext";
 import { View, StyleSheet } from "react-native";
 import RegisterScreen from "./screens/RegisterScreen";
 import { NavigationContainer } from "@react-navigation/native";
@@ -45,31 +46,33 @@ export default function App() {
 
   return (
     <FavoritesProvider>
-      <View style={styles.container}>
-        <Stack.Navigator
-          screenOptions={{
-            headerTitle: "",
-            headerBackTitleVisible: false,
-            headerShown: false
-          }}
-        >
-          <Stack.Screen
-            name="Home"
-            component={HomeScreenWithNav}
-            options={{ headerShown: false }}
-          />
-          <Stack.Screen
-            name="StockDetail"
-            component={StockDetailScreenWithNav}
-            options={{ title: "" }}
-          />
-          <Stack.Screen
-            name="Favorites"
-            component={FavoritesScreenWithNav}
-            options={{ title: "Favorites" }}
-          />
-        </Stack.Navigator>
-      </View>
+      <NotificationProvider>
+        <View style={styles.container}>
+          <Stack.Navigator
+            screenOptions={{
+              headerTitle: "",
+              headerBackTitleVisible: false,
+              headerShown: false
+            }}
+          >
+            <Stack.Screen
+              name="Home"
+              component={HomeScreenWithNav}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="StockDetail"
+              component={StockDetailScreenWithNav}
+              options={{ title: "" }}
+            />
+            <Stack.Screen
+              name="Favorites"
+              component={FavoritesScreenWithNav}
+              options={{ title: "Favorites" }}
+            />
+          </Stack.Navigator>
+        </View>
+      </NotificationProvider>
     </FavoritesProvider>
   );
 }

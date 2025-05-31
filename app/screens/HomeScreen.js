@@ -8,12 +8,14 @@ import {
   Image, 
   StyleSheet,
   Modal,
-  Pressable
+  Pressable,
+  Alert
 } from "react-native";
 import { WebView } from 'react-native-webview';
 import { Ionicons } from "@expo/vector-icons";
 import { useFavorites } from "./FavoritesContext";
 import { stockLogos } from "../logos"; 
+import { useNotifications } from './NotificationContext';
 
 export default function HomeScreen({ navigation, BottomNavComponent }) {
   const [stockData, setStockData] = useState([]);
@@ -26,57 +28,14 @@ export default function HomeScreen({ navigation, BottomNavComponent }) {
   const [showSortOptions, setShowSortOptions] = useState(false);
   const [sortBy, setSortBy] = useState('symbol'); // 'symbol' veya 'price'
   const testLogo = "https://upload.wikimedia.org/wikipedia/commons/1/1e/React_Logo.png";
+  
+  const notifications = useNotifications();
+  const { addStockAlert, removeStockAlert, stockAlerts, checkPriceAlerts } = notifications || {};
 
-  const fetchStockDataWithPolling = async () => {
-    try {
-      console.log("Veri çekme işlemi başlıyor...");
-      const startResponse = await fetch("http://10.0.2.2:5001/fetch_data");
-      if (!startResponse.ok) throw new Error(`Başlatma başarısız: ${startResponse.status}`);
-
-      let attempts = 0;
-      const maxAttempts = 10;
-      let dataFetched = false;
-
-      while (attempts < maxAttempts && !dataFetched) {
-        console.log(`Deneme ${attempts + 1}: Veriler çekilmeye çalışılıyor...`);
-        await new Promise((resolve) => setTimeout(resolve, 3000));
-
-        try {
-          const response = await fetch("http://10.0.2.2:5001/get_stock_data");
-          if (!response.ok) {
-            console.warn(`Yanıt başarısız: ${response.status}`);
-            continue;
-          }
-
-          const result = await response.json();
-          if (Array.isArray(result.data) && result.data.length > 0) {
-            console.log("Veriler başarıyla çekildi!");
-            const stocksWithLogos = result.data.map((stock) => {
-              const symbolUpper = stock.symbol.toUpperCase();
-              const logo = stockLogos[symbolUpper];
-              return { ...stock, logo };
-            });
-
-            setStockData(stocksWithLogos);
-            setFilteredStocks(stocksWithLogos);
-            dataFetched = true;
-          } else {
-            console.warn("Veri henüz hazır değil, tekrar denenecek...");
-          }
-        } catch (fetchError) {
-          console.error("Veri çekme hatası:", fetchError);
-        }
-        attempts++;
-      }
-      if (!dataFetched) console.error("Maksimum deneme sayısına ulaşıldı, veri çekilemedi.");
-    } catch (error) {
-      console.log("API hatası:", error);
-    }
-  };
-
-  useEffect(() => {
-    fetchStockDataWithPolling();
-  }, []);
+  const [showAlertModal, setShowAlertModal] = useState(false);
+  const [selectedStock, setSelectedStock] = useState(null);
+  const [alertPrice, setAlertPrice] = useState('');
+  const [alertType, setAlertType] = useState(null);
 
   const handleSort = (order, by) => {
     setSortOrder(order);
@@ -152,6 +111,89 @@ export default function HomeScreen({ navigation, BottomNavComponent }) {
     setShowChartOptions(false);
   };
 
+  const handlePriceAlert = (stock) => {
+    if (!addStockAlert) {
+      Alert.alert('Hata', 'Bildirim sistemi şu anda kullanılamıyor.');
+      return;
+    }
+    setSelectedStock(stock);
+    setAlertPrice(stock.price.toString());
+    setShowAlertModal(true);
+  };
+
+  const handleAlertSubmit = () => {
+    if (!alertPrice || isNaN(alertPrice) || !alertType) {
+      Alert.alert('Hata', 'Lütfen geçerli bir fiyat girin ve bir uyarı tipi seçin.');
+      return;
+    }
+
+    addStockAlert(selectedStock.symbol, parseFloat(alertPrice), alertType);
+    Alert.alert('Başarılı', `Fiyat ${alertType === 'above' ? 'yukarı' : 'aşağı'} uyarısı eklendi!`);
+    setShowAlertModal(false);
+    setAlertPrice('');
+    setAlertType(null);
+    setSelectedStock(null);
+  };
+
+  const fetchStockDataWithPolling = async () => {
+    try {
+      console.log("Veri çekme işlemi başlıyor...");
+      const startResponse = await fetch("http://10.0.2.2:5001/fetch_data");
+      if (!startResponse.ok) throw new Error(`Başlatma başarısız: ${startResponse.status}`);
+
+      let attempts = 0;
+      const maxAttempts = 10;
+      let dataFetched = false;
+
+      while (attempts < maxAttempts && !dataFetched) {
+        console.log(`Deneme ${attempts + 1}: Veriler çekilmeye çalışılıyor...`);
+        await new Promise((resolve) => setTimeout(resolve, 3000));
+
+        try {
+          const response = await fetch("http://10.0.2.2:5001/get_stock_data");
+          if (!response.ok) {
+            console.warn(`Yanıt başarısız: ${response.status}`);
+            continue;
+          }
+
+          const result = await response.json();
+          if (Array.isArray(result.data) && result.data.length > 0) {
+            console.log("Veriler başarıyla çekildi!");
+            const stocksWithLogos = result.data.map((stock) => {
+              const symbolUpper = stock.symbol.toUpperCase();
+              const logo = stockLogos[symbolUpper];
+              return { ...stock, logo };
+            });
+
+            setStockData(stocksWithLogos);
+            setFilteredStocks(stocksWithLogos);
+            
+            // Fiyat değişikliklerini kontrol et
+            if (checkPriceAlerts) {
+              stocksWithLogos.forEach(stock => {
+                checkPriceAlerts(stock.symbol, stock.price);
+              });
+            }
+            
+            dataFetched = true;
+          } else {
+            console.warn("Veri henüz hazır değil, tekrar denenecek...");
+          }
+        } catch (fetchError) {
+          console.error("Veri çekme hatası:", fetchError);
+        }
+        attempts++;
+      }
+      if (!dataFetched) console.error("Maksimum deneme sayısına ulaşıldı, veri çekilemedi.");
+    } catch (error) {
+      console.error("API hatası:", error);
+    }
+  };
+
+  useEffect(() => {
+    fetchStockDataWithPolling();
+  }, []);
+
   return (
     <View style={{ flex: 1, backgroundColor: '#f6bfe0' }}>
       <View style={styles.header}>
@@ -182,32 +224,36 @@ export default function HomeScreen({ navigation, BottomNavComponent }) {
             <Text style={styles.modalTitle}>Sıralama Seçenekleri</Text>
             
             <Text style={styles.sectionTitle}>Sembole Göre</Text>
-            <TouchableOpacity
-              style={[styles.optionButton, sortOrder === 'asc' && sortBy === 'symbol' && styles.selectedOption]}
-              onPress={() => handleSort('asc', 'symbol')}
-            >
-              <Text style={styles.optionText}>A-Z Sırala</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.optionButton, sortOrder === 'desc' && sortBy === 'symbol' && styles.selectedOption]}
-              onPress={() => handleSort('desc', 'symbol')}
-            >
-              <Text style={styles.optionText}>Z-A Sırala</Text>
-            </TouchableOpacity>
+            <View style={styles.buttonRow}>
+              <TouchableOpacity
+                style={[styles.optionButton, sortOrder === 'asc' && sortBy === 'symbol' && styles.selectedOption]}
+                onPress={() => handleSort('asc', 'symbol')}
+              >
+                <Text style={[styles.optionText, sortOrder === 'asc' && sortBy === 'symbol' && styles.selectedOptionText]}>A-Z</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.optionButton, sortOrder === 'desc' && sortBy === 'symbol' && styles.selectedOption]}
+                onPress={() => handleSort('desc', 'symbol')}
+              >
+                <Text style={[styles.optionText, sortOrder === 'desc' && sortBy === 'symbol' && styles.selectedOptionText]}>Z-A</Text>
+              </TouchableOpacity>
+            </View>
 
             <Text style={styles.sectionTitle}>Fiyata Göre</Text>
-            <TouchableOpacity
-              style={[styles.optionButton, sortOrder === 'asc' && sortBy === 'price' && styles.selectedOption]}
-              onPress={() => handleSort('asc', 'price')}
-            >
-              <Text style={styles.optionText}>Fiyat (Artan)</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.optionButton, sortOrder === 'desc' && sortBy === 'price' && styles.selectedOption]}
-              onPress={() => handleSort('desc', 'price')}
-            >
-              <Text style={styles.optionText}>Fiyat (Azalan)</Text>
-            </TouchableOpacity>
+            <View style={styles.buttonRow}>
+              <TouchableOpacity
+                style={[styles.optionButton, sortOrder === 'asc' && sortBy === 'price' && styles.selectedOption]}
+                onPress={() => handleSort('asc', 'price')}
+              >
+                <Text style={[styles.optionText, sortOrder === 'asc' && sortBy === 'price' && styles.selectedOptionText]}>Artan</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.optionButton, sortOrder === 'desc' && sortBy === 'price' && styles.selectedOption]}
+                onPress={() => handleSort('desc', 'price')}
+              >
+                <Text style={[styles.optionText, sortOrder === 'desc' && sortBy === 'price' && styles.selectedOptionText]}>Azalan</Text>
+              </TouchableOpacity>
+            </View>
 
             <TouchableOpacity
               style={styles.closeButton}
@@ -250,6 +296,77 @@ export default function HomeScreen({ navigation, BottomNavComponent }) {
         </View>
       </Modal>
 
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={showAlertModal}
+        onRequestClose={() => setShowAlertModal(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Fiyat Uyarısı</Text>
+            <Text style={styles.modalSubtitle}>
+              {selectedStock?.symbol} için fiyat uyarısı ekleyin
+            </Text>
+
+            <View style={styles.alertTypeContainer}>
+              <TouchableOpacity
+                style={[
+                  styles.alertTypeButton,
+                  alertType === 'above' && styles.selectedAlertType
+                ]}
+                onPress={() => setAlertType('above')}
+              >
+                <Text style={[
+                  styles.alertTypeText,
+                  alertType === 'above' && styles.selectedAlertTypeText
+                ]}>Yukarı</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.alertTypeButton,
+                  alertType === 'below' && styles.selectedAlertType
+                ]}
+                onPress={() => setAlertType('below')}
+              >
+                <Text style={[
+                  styles.alertTypeText,
+                  alertType === 'below' && styles.selectedAlertTypeText
+                ]}>Aşağı</Text>
+              </TouchableOpacity>
+            </View>
+
+            <TextInput
+              style={styles.priceInput}
+              placeholder="Fiyat"
+              keyboardType="numeric"
+              value={alertPrice}
+              onChangeText={setAlertPrice}
+            />
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => {
+                  setShowAlertModal(false);
+                  setAlertPrice('');
+                  setAlertType(null);
+                  setSelectedStock(null);
+                }}
+              >
+                <Text style={styles.modalButtonText}>İptal</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.submitButton]}
+                onPress={handleAlertSubmit}
+              >
+                <Text style={[styles.modalButtonText, styles.submitButtonText]}>Kaydet</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       <FlatList
         contentContainerStyle={{ padding: 10 }}
         data={filteredStocks}
@@ -274,27 +391,41 @@ export default function HomeScreen({ navigation, BottomNavComponent }) {
                   <Text style={styles.logoText}>No Logo</Text>
                 </View>
               )}
-              <View style={styles.stockInfoRow}>
+              <View style={styles.stockContent}>
                 <View style={styles.stockInfo}>
                   <Text style={styles.stockSymbol}>{item.symbol}</Text>
                   <Text style={styles.stockPrice}>
                     ${typeof item.price === 'number' ? item.price.toFixed(2) : "N/A"}
                   </Text>
                 </View>
-                <Ionicons 
-                  name={typeof item.price === 'number' && typeof item.open === 'number' && item.price > item.open ? "arrow-up-outline" : "arrow-down-outline"} 
-                  size={28} 
-                  color={typeof item.price === 'number' && typeof item.open === 'number' && item.price > item.open ? "green" : "red"} 
-                  style={styles.arrowIcon} 
-                />
+                <View style={styles.iconsContainer}>
+                  <Ionicons 
+                    name={typeof item.price === 'number' && typeof item.open === 'number' && item.price > item.open ? "arrow-up-outline" : "arrow-down-outline"} 
+                    size={24} 
+                    color={typeof item.price === 'number' && typeof item.open === 'number' && item.price > item.open ? "green" : "red"} 
+                  />
+                  <TouchableOpacity 
+                    onPress={() => toggleFavorite(item.symbol, item)} 
+                    style={styles.iconButton}
+                  >
+                    <Ionicons 
+                      name={favorites[item.symbol] ? "heart" : "heart-outline"} 
+                      size={24} 
+                      color={favorites[item.symbol] ? "red" : "#d63384"} 
+                    />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => handlePriceAlert(item)}
+                    style={styles.iconButton}
+                  >
+                    <Ionicons 
+                      name={stockAlerts?.[item.symbol] ? "notifications" : "notifications-outline"} 
+                      size={24} 
+                      color="#d63384" 
+                    />
+                  </TouchableOpacity>
+                </View>
               </View>
-              <TouchableOpacity onPress={() => toggleFavorite(item.symbol, item)} style={styles.heartContainer}>
-                <Ionicons 
-                  name={favorites[item.symbol] ? "heart" : "heart-outline"} 
-                  size={24} 
-                  color={favorites[item.symbol] ? "red" : "#d63384"} 
-                />
-              </TouchableOpacity>
             </TouchableOpacity>
           );
         }}
@@ -372,6 +503,13 @@ const styles = StyleSheet.create({
     textAlign: "center",
     fontWeight: "bold",
   },
+  stockContent: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginLeft: 15,
+  },
   stockInfo: {
     flex: 1,
   },
@@ -384,17 +522,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#333",
   },
-  stockInfoRow: {
+  iconsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    flex: 1,
-    justifyContent: 'space-between',
+    gap: 12,
   },
-  arrowIcon: {
-    marginLeft: 8,
-  },
-  heartContainer: {
-    padding: 5,
+  iconButton: {
+    padding: 4,
   },
   modalContainer: {
     flex: 1,
@@ -412,37 +546,70 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    marginBottom: 20,
+    marginBottom: 10,
     color: '#d63384',
   },
-  optionButton: {
+  modalSubtitle: {
+    fontSize: 16,
+    color: '#666',
+    marginBottom: 20,
+  },
+  alertTypeContainer: {
+    flexDirection: 'row',
+    marginBottom: 20,
+    gap: 10,
+  },
+  alertTypeButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    backgroundColor: '#f6bfe0',
+    minWidth: 100,
+    alignItems: 'center',
+  },
+  selectedAlertType: {
+    backgroundColor: '#d63384',
+  },
+  alertTypeText: {
+    color: '#333',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  selectedAlertTypeText: {
+    color: 'white',
+  },
+  priceInput: {
     backgroundColor: '#f6bfe0',
     padding: 15,
     borderRadius: 10,
     width: '100%',
-    marginBottom: 10,
-    alignItems: 'center',
-  },
-  selectedOption: {
-    backgroundColor: '#d63384',
-  },
-  optionText: {
-    color: '#333',
+    marginBottom: 20,
     fontSize: 16,
-    fontWeight: 'bold',
   },
-  closeButton: {
-    backgroundColor: '#ffc0cb',
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 10,
+    width: '100%',
+  },
+  modalButton: {
+    flex: 1,
     padding: 15,
     borderRadius: 10,
-    width: '100%',
     alignItems: 'center',
-    marginTop: 10,
   },
-  closeButtonText: {
+  cancelButton: {
+    backgroundColor: '#ffc0cb',
+  },
+  submitButton: {
+    backgroundColor: '#d63384',
+  },
+  modalButtonText: {
     color: '#333',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  submitButtonText: {
+    color: 'white',
   },
   sectionTitle: {
     fontSize: 16,
@@ -451,5 +618,49 @@ const styles = StyleSheet.create({
     marginTop: 15,
     marginBottom: 5,
     alignSelf: 'flex-start',
-  }
+  },
+  stockPriceContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  optionButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    borderRadius: 8,
+    backgroundColor: '#f6bfe0',
+    marginHorizontal: 5,
+    marginBottom: 10,
+    minWidth: 120,
+    alignItems: 'center',
+  },
+  selectedOption: {
+    backgroundColor: '#d63384',
+  },
+  optionText: {
+    color: '#333',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  selectedOptionText: {
+    color: 'white',
+  },
+  closeButton: {
+    marginTop: 15,
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    borderRadius: 8,
+    backgroundColor: '#ffc0cb',
+    minWidth: 120,
+    alignItems: 'center',
+  },
+  closeButtonText: {
+    color: '#333',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
 });
