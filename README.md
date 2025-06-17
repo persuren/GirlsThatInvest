@@ -1,5 +1,3 @@
-APK linki : https://drive.google.com/file/d/1SN4DEThxUYbIM9P8o58JOcX43KlYacKL/view?usp=sharing
-(dosya boyutu büyük olduğu için githuba yükleyemedim)
 
 Video linki : https://drive.google.com/file/d/1KwqEY179VS8ADy73oklCH0oVxOqqa4nz/view?usp=sharing
 
