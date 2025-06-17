@@ -1,54 +1,25 @@
-Project Video Link: https://drive.google.com/file/d/1WKDEQJSZiINwumiMSN9AMVeB7B1Flhnf/view?usp=sharing
+APK linki : https://drive.google.com/file/d/1SN4DEThxUYbIM9P8o58JOcX43KlYacKL/view?usp=sharing
+(dosya boyutu büyük olduğu için githuba yükleyemedim)
 
+Video linki : https://drive.google.com/file/d/1KwqEY179VS8ADy73oklCH0oVxOqqa4nz/view?usp=sharing
 
+Proje İçeriği:
 
-# Welcome to your Expo app 👋
-
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
-
-## Get started
-
-1. Install dependencies
-
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-    npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
-```
-
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+Girls That Invest – Hisse Takip Mobil Uygulaması
+Proje Amacı:
+Girls That Invest, kullanıcıların Nasdaq borsasında işlem gören hisseleri takip edebileceği, fiyat grafiklerini analiz edebileceği ve belirli fiyat aralıkları için bildirim alabileceği bir mobil uygulamadır.
+Temel Özellikler:
+•	Hisse arama, listeleme ve detay görüntüleme
+•	Kullanıcı girişi ve kayıt olma ekranları
+•	Saatlik ve dakikalık grafik gösterimi
+•	Haber entegrasyonu (News API)
+•	Hisseleri isme veya fiyatlara göre sıralama seçeneği
+•	Favorilere ekleme ve takip
+•	Fiyat aralığı belirleyip uyarı alma (bildirim)
+Teknolojiler:
+•	React Native + Expo
+•	Firebase (Auth + Realtime DB)
+•	Flask API + yahoofinance (hisse verisi)
+•	News API (güncel haberler)
+Sonuç:
+Uygulama, yatırımcılara mobil ortamda hızlı, kişiselleştirilmiş ve bir hisse takip deneyimi sunar.
